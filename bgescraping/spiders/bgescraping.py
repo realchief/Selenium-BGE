@@ -60,18 +60,37 @@ class BgeSpider(Spider):
                 continue
 
     def parse(self, response):
+        # if self.credential_idx == 0:
+        #     self.driver.get(response.url)
+        # else:
+        #     self.logout()
+        #
+        #     # go to login page
 
-        opt = webdriver.ChromeOptions()
         self.driver.get(response.url)
         self.login()
+        account_index = 0
 
         while True:
             try:
-                if self.driver.current_url != 'https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx':
-                    self.driver.get('https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx')
+
+                if self.driver.current_url != 'https://secure.bge.com/Pages/ChangeAccount.aspx':
+                    self.driver.get('https://secure.bge.com/Pages/ChangeAccount.aspx')
 
                 account_selected = True
+                account_views = self.driver.find_elements_by_xpath(
+                    '//table[@id="changeAccountDT"]//tbody//tr//td//span[contains(text(), "View")]'
+                )
                 while account_selected:
+                    try:
+                        account_views[account_index].click()
+                        account_index = account_index + 1
+                    except:
+                        account_selected = False
+
+                    if self.driver.current_url != 'https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx':
+                        self.driver.get('https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx')
+
                     options = self.driver.find_elements_by_xpath('//select[@id="filter-statement-type"]//option')
                     if options:
                         statement_type = options[1]
@@ -112,12 +131,19 @@ class BgeSpider(Spider):
                     try:
                         self.driver.find_elements_by_xpath(
                             '//a[@class="btn btn-primary" and contains(text(), "Change Account")]')[0].click()
+
                     except:
                         account_selected = False
 
             except:
                 sleep(2)
                 continue
+
+        # if (self.credential_idx < len(self.credentials))
+        #     self.credential_idx += 1
+        #     return self.parse(response)
+        # else:
+        #     self.driver.close()
 
     def download_page(self, pdf_link, account_number=None, bill_date=None):
 
