@@ -67,17 +67,12 @@ class BgeSpider(Spider):
                 sleep(10)
                 continue
 
-        while True:
-            try:
-                self.driver.find_element_by_xpath('//div[@id="callMeBackContainerApp"]')
-                break
-            except:
-                sleep(100)
-                continue
-
     def parse(self, response):
 
-        for user_index in range(0, len(self.username_list)):
+        # for user_index in range(0, len(self.username_list)):
+        all_users_option = True
+        user_index = 0
+        while all_users_option:
 
             if user_index == 0:
                 self.driver.get(response.url)
@@ -98,6 +93,7 @@ class BgeSpider(Spider):
                         try:
                             account_rows[account_index].find_elements_by_xpath(
                                 './/td[@class="action-cell ng-scope"]//button')[0].click()
+                            sleep(5)
                             account_index = account_index + 1
                         except:
                             account_selected = False
@@ -154,8 +150,13 @@ class BgeSpider(Spider):
                 except:
                     sleep(2)
                     continue
-            print('===========All files of your account has been downloaded================')
-            continue
+            print('===========All files of your account have been downloaded================')
+            user_index = user_index + 1
+            if user_index > len(self.username_list) - 1:
+                all_users_option = False
+
+        print('===========All files of all users have been downloaded================')
+        self.driver.close()
 
     def download_page(self, pdf_link, account_number=None, bill_date=None):
 
