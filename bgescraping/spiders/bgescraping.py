@@ -141,11 +141,11 @@ class BgeSpider(Spider):
                         try:
                             self.driver.find_elements_by_xpath(
                                 '//a[@class="btn btn-primary" and contains(text(), "Change Account")]')[0].click()
-                            if account_index > len(account_rows) - 1:
-                                final_option = False
-
                         except:
                             account_selected = False
+
+                        if account_index > len(account_rows) - 1:
+                            final_option = False
 
                 except:
                     sleep(2)
