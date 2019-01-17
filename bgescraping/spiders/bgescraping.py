@@ -4,7 +4,9 @@ import re
 from selenium import webdriver
 from time import sleep
 import os
+import urllib
 import requests
+import ssl
 import csv
 
 
@@ -69,7 +71,6 @@ class BgeSpider(Spider):
 
     def parse(self, response):
 
-        # for user_index in range(0, len(self.username_list)):
         all_users_option = True
         user_index = 0
         while all_users_option:
@@ -123,7 +124,7 @@ class BgeSpider(Spider):
                             rows = self.driver.find_elements_by_xpath(
                                 '//table[@class="table bill-history dataTable no-footer dtr-column collapsed"]//tbody//tr'
                             )
-
+                            cookies = self.driver.get_cookies()
                             for row in rows:
                                 bill_date_info = row.find_elements_by_xpath('.//td[@class="sorting_1"]')[0].text.split('/')
                                 bill_date = bill_date_info[2] + bill_date_info[0] + bill_date_info[1]
@@ -131,7 +132,8 @@ class BgeSpider(Spider):
                                 pdf_link = row.find_elements_by_xpath('.//td[@class="action-cell"]/a')[0].get_attribute('href')
                                 if '{}-{}'.format(account_number, bill_date) not in self.logs:
                                     print '--------- downloading ---'
-                                    yield self.download_page(pdf_link, account_number, bill_date)
+                                    yield self.download_page(pdf_link, account_number, bill_date, cookies)
+                                    sleep(10)
 
                             try:
                                 self.driver.find_elements_by_xpath('//li[@class="paginate_button next"]')[0].click()
@@ -158,13 +160,18 @@ class BgeSpider(Spider):
         print('===========All files of all users have been downloaded================')
         self.driver.close()
 
-    def download_page(self, pdf_link, account_number=None, bill_date=None):
+    def download_page(self, pdf_link, account_number=None, bill_date=None, cookies=None):
 
-        raw_pdf = requests.get(pdf_link).content
-        file_name = '{}{}_{}.pdf'.format(self.download_directory, account_number, bill_date)
+        s = requests.Session()
+        for cookie in cookies:
+            s.cookies.set(cookie['name'], cookie['value'])
+
+        raw_pdf = s.get(pdf_link).content
+        file_name = '{}pdf_{}_{}.pdf'.format(self.download_directory, account_number, bill_date)
 
         with open(file_name, 'wb') as f:
             f.write(raw_pdf)
+            sleep(10)
             self.logger.info('{} is downloaded successfully'.format(account_number))
             f.close()
         self.write_logs('{}-{}'.format(account_number, bill_date))
