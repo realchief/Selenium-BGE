@@ -8,6 +8,7 @@ import urllib
 import requests
 import ssl
 import csv
+from selenium.webdriver.common.keys import Keys
 
 
 class BgeSpider(Spider):
@@ -20,18 +21,18 @@ class BgeSpider(Spider):
     def __init__(self, username=None, password=None, download_directory=None, *args, **kwargs):
         super(BgeSpider, self).__init__(*args, **kwargs)
 
-        with open('BGE Credentials.csv', 'rb') as csvfile:
+        with open('BGE-account_number.csv', 'rb') as csvfile:
             reader = csv.reader(csvfile)
             self.password_list = []
             self.username_list = []
+            self.account_number_list = []
             for row_index, row in enumerate(reader):
                 if row_index != 0:
                     self.username_list.append(row[0])
                     self.password_list.append(row[1])
+                    self.account_number_list.append(row[2])
 
         self.user_index = 0
-        # self.user_name = username if username else 'ap@res1.net'
-        # self.password = password if password else 'paybgenow1!'
 
         self.download_directory = download_directory if download_directory else 'C:/Users/webguru/Downloads/BGE/'
 
@@ -50,11 +51,11 @@ class BgeSpider(Spider):
     def login(self, user_index=None):
         while True:
             try:
-
                 user_email = self.driver.find_element_by_xpath(
                     '//div[contains(@class, "exc-form-inner exc-tooltip")]//input[contains(@id, "Username")]')
                 user_name = self.username_list[user_index]
                 password = self.password_list[user_index]
+
                 user_email.send_keys(user_name)
                 user_password = self.driver.find_element_by_xpath(
                     '//div[contains(@class, "exc-form-group-double")]//input[contains(@id,"Password")]'
@@ -75,90 +76,130 @@ class BgeSpider(Spider):
         user_index = 0
         while all_users_option:
 
-            if user_index == 0:
-                self.driver.get(response.url)
-            if self.driver.current_url != 'https://secure.bge.com/pages/login.aspx':
-                self.driver.get('https://secure.bge.com/pages/login.aspx')
-            self.login(user_index)
-            account_index = 0
-            final_option = True
-            while final_option:
-                try:
+            try:
 
+                no_thanks_button = self.driver.find_elements_by_xpath('//a[@title="No, thanks"]')
+                if no_thanks_button:
+                    no_thanks_button[0].click()
+
+                if user_index == 0:
+                    self.driver.get('https://secure.bge.com/pages/login.aspx')
+                    self.login(user_index)
+
+                if user_index > 0 and self.username_list[user_index-1] != self.username_list[user_index]:
+                    self.driver.find_element_by_xpath(
+                        '//button[contains(@title, "Sign Out")]'
+                    ).click()
+                    self.driver.get('https://secure.bge.com/pages/login.aspx')
+                    self.login(user_index)
+
+                sleep(5)
+
+                if self.driver.current_url == 'https://secure.bge.com/Pages/Login.aspx?technicalError=true':
+                    print "Login failed. Invalid username and password"
+                    user_index = user_index + 1
+                    if user_index > len(self.username_list) - 1:
+                        all_users_option = False
+                if self.driver.current_url == 'https://secure.bge.com/pages/login.aspx?TARGET=%2fPages%2fChangeAccount.aspx':
+                    print "Login failed. Invalid username and password"
+                    user_index = user_index + 1
+                    if user_index > len(self.username_list) - 1:
+                        all_users_option = False
+
+                try:
                     if self.driver.current_url != 'https://secure.bge.com/Pages/ChangeAccount.aspx':
                         self.driver.get('https://secure.bge.com/Pages/ChangeAccount.aspx')
 
-                    account_selected = True
+                    sleep(5)
+                    account_number_search_input = self.driver.find_element_by_xpath(
+                        '//div[contains(@id, "changeAccountDT_filter")]//input[contains(@type, "search")]')
+                    sleep(5)
+                    account_number = self.account_number_list[user_index]
+                    account_number_search_input.send_keys(account_number)
+                    sleep(5)
                     account_rows = self.driver.find_elements_by_xpath('//table[@id="changeAccountDT"]//tbody//tr')
-                    while account_selected:
-                        try:
-                            account_rows[account_index].find_elements_by_xpath(
-                                './/td[@class="action-cell ng-scope"]//button')[0].click()
-                            sleep(5)
-                            account_index = account_index + 1
-                        except:
-                            account_selected = False
 
-                        if self.driver.current_url != 'https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx':
-                            self.driver.get('https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx')
+                    account_rows[0].find_elements_by_xpath(
+                        './/td[@class="action-cell ng-scope"]//button')[0].click()
+                    sleep(5)
 
-                        options = self.driver.find_elements_by_xpath('//select[@id="filter-statement-type"]//option')
-                        if options:
-                            statement_type = options[1]
-                            statement_type.click()
+                    if self.driver.current_url != 'https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx':
+                        self.driver.get('https://secure.bge.com/MyAccount/MyBillUsage/Pages/Secure/AccountHistory.aspx')
 
-                        search_button = self.driver.find_elements_by_xpath('//button[@id="filter-apply"]')
-                        if search_button:
-                            search_button[0].click()
-                        else:
-                            print "There is no search button"
+                    sleep(5)
 
-                        account_number = self.driver.find_elements_by_xpath(
-                            '//p[contains(text(), "Account")]//span[@class="exc-data-neutral"]'
+                    options = self.driver.find_elements_by_xpath('//select[@id="filter-statement-type"]//option')
+                    if options:
+                        statement_type = options[1]
+                        statement_type.click()
+
+                    sleep(5)
+                    search_button = self.driver.find_elements_by_xpath('//button[@id="filter-apply"]')
+                    if search_button:
+                        search_button[0].click()
+                    else:
+                        print "There is no search button"
+
+                    sleep(5)
+                    no_thanks_button = self.driver.find_elements_by_xpath('//a[@title="No, thanks"]')
+                    if no_thanks_button:
+                        no_thanks_button[0].click()
+
+                    all_pages_crawled = False
+                    while not all_pages_crawled:
+                        rows = self.driver.find_elements_by_xpath(
+                            '//table[@class="table bill-history dataTable no-footer dtr-column collapsed"]//tbody//tr'
                         )
-                        account_number = account_number[0].text if account_number else None
+                        cookies = self.driver.get_cookies()
+                        for row in rows:
 
-                        all_pages_crawled = False
-                        while not all_pages_crawled:
+                            no_thanks_button = self.driver.find_elements_by_xpath('//a[@title="No, thanks"]')
+                            if no_thanks_button:
+                                no_thanks_button[0].click()
 
-                            rows = self.driver.find_elements_by_xpath(
-                                '//table[@class="table bill-history dataTable no-footer dtr-column collapsed"]//tbody//tr'
-                            )
-                            cookies = self.driver.get_cookies()
-                            for row in rows:
-                                bill_date_info = row.find_elements_by_xpath('.//td[@class="sorting_1"]')[0].text.split('/')
+                            bill_date_info = row.find_elements_by_xpath('.//td[@class="sorting_1"]')[0].text.split('/')
+                            if "No data available in table" not in bill_date_info[0]:
                                 bill_date = bill_date_info[2] + bill_date_info[0] + bill_date_info[1]
-
                                 pdf_link = row.find_elements_by_xpath('.//td[@class="action-cell"]/a')[0].get_attribute('href')
                                 if '{}-{}'.format(account_number, bill_date) not in self.logs:
                                     print '--------- downloading ---'
                                     yield self.download_page(pdf_link, account_number, bill_date, cookies)
-                                    sleep(10)
+                                    sleep(5)
+                            else:
+                                no_thanks_button = self.driver.find_elements_by_xpath('//a[@title="No, thanks"]')
+                                if no_thanks_button:
+                                    no_thanks_button[0].click()
 
-                            try:
-                                self.driver.find_elements_by_xpath('//li[@class="paginate_button next"]')[0].click()
-                            except:
-                                all_pages_crawled = True
-
+                                user_index = user_index + 1
+                                if user_index > len(self.username_list) - 1:
+                                    all_users_option = False
                         try:
-                            self.driver.find_elements_by_xpath(
-                                '//a[@class="btn btn-primary" and contains(text(), "Change Account")]')[0].click()
+                            self.driver.find_elements_by_xpath('//li[@class="paginate_button next"]')[0].click()
                         except:
-                            account_selected = False
+                            all_pages_crawled = True
 
-                        if account_index > len(account_rows) - 1:
-                            final_option = False
-
+                    change_account_btn = self.driver.find_elements_by_xpath(
+                            '//a[@class="btn btn-primary" and contains(text(), "Change Account")]')
+                    if change_account_btn:
+                        change_account_btn[0].click()
+                    else:
+                        self.driver.get('https://secure.pepco.com/Pages/ChangeAccount.aspx')
+                    sleep(3)
                 except:
-                    sleep(2)
                     continue
-            print('===========All files of your account have been downloaded================')
-            user_index = user_index + 1
-            if user_index > len(self.username_list) - 1:
-                all_users_option = False
+                    sleep(2)
+
+                print('===========All files of your account have been downloaded================')
+                user_index = user_index + 1
+                if user_index > len(self.username_list) - 1:
+                    all_users_option = False
+
+            except:
+                sleep(2)
+                continue
 
         print('===========All files of all users have been downloaded================')
-        self.driver.close()
+        # self.driver.close()
 
     def download_page(self, pdf_link, account_number=None, bill_date=None, cookies=None):
 
